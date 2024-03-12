@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Flappy Duck</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="gameCanvas" width="288" height="512"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const gravity = 0.2;
+    const jumpForce = -5;
+    const pipeWidth = 64;
+    const pipeGap = 175;
+    const maxPipeHeight = canvas.height - pipeGap - 50;
+    const startingPipeSpeed = 2;
+    const levelThreshold = 5;
+    const pipeSpeedIncrement = 0.5;
+    const musicSpeedIncrement = 0.1;
+
+    let duck = {x: 50, y: canvas.height / 2.5, radius: 20, velocity: 0};
+    let pipes = [];
+    let score = 0;
+    let gameOver = false;
+    let pipeSpeed = startingPipeSpeed;
+    let level = 1;
+
+    const duckImg = new Image();
+    duckImg.src = 'duck.png';
+    const pipeImg = new Image();
+    pipeImg.src = 'pipe.png';
+    const bgImg = new Image();
+    bgImg.src = 'background.png';
+    const nextLevelSound = new Audio('next_level.mp3');
+    const gameOverSound = new Audio('game_over.mp3');
+    const bgMusic = new Audio('background_music.mp3');
+    bgMusic.loop = true;
+    bgMusic.volume = 0.25; // Set volume to 25%
+
+    function drawDuck() {
+      ctx.drawImage(duckImg, duck.x - duck.radius, duck.y - duck.radius, duck.radius * 2, duck.radius * 2);
+    }
+
+    function drawPipes() {
+      pipes.forEach(pipe => {
+        ctx.drawImage(pipeImg, pipe.x, 0, pipeWidth, pipe.top);
+        ctx.drawImage(pipeImg, pipe.x, canvas.height - pipe.bottom, pipeWidth, pipe.bottom);
+      });
+    }
+
+    let bgX = 0;
+    function drawBackground() {
+      ctx.drawImage(bgImg, bgX, 0, canvas.width, canvas.height);
+      ctx.drawImage(bgImg, bgX + canvas.width, 0, canvas.width, canvas.height);
+      bgX -= pipeSpeed;
+      if (bgX <= -canvas.width) {
+        bgX = 0;
+      }
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      duck.velocity += gravity;
+      duck.y += duck.velocity;
+
+      pipes.forEach(pipe => {
+        const duckCenterX = duck.x;
+        const duckCenterY = duck.y;
+        if (duckCenterX > pipe.x && duckCenterX < pipe.x + pipeWidth) {
+          if (duckCenterY < pipe.top || duckCenterY > canvas.height - pipe.bottom) {
+            gameOver = true;
+            gameOverSound.play();
+            bgMusic.pause();
+          }
+        }
+      });
+
+      drawBackground();
+      drawDuck();
+      drawPipes();
+
+      if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 200) {
+        const pipeHeight = Math.random() * maxPipeHeight;
+        pipes.push({
+          x: canvas.width,
+          top: pipeHeight,
+          bottom: canvas.height - pipeHeight - pipeGap,
+          passed: false
+        });
+      }
+
+      pipes.forEach(pipe => {
+        pipe.x -= pipeSpeed;
+      });
+
+      pipes = pipes.filter(pipe => {
+        if (pipe.x + pipeWidth < duck.x && !pipe.passed) {
+          score++;
+          pipe.passed = true;
+          if (score % levelThreshold === 0) {
+            level++;
+            pipeSpeed += pipeSpeedIncrement;
+            nextLevelSound.play();
+            bgMusic.playbackRate += musicSpeedIncrement;
+          }
+        }
+        return pipe.x + pipeWidth > 0;
+      });
+
+      ctx.font = '28px Arial';
+      ctx.fillStyle = 'orange';
+      ctx.fillText(`Score: ${score}`, 10, 30);
+      ctx.fillText(`Level: ${level}`, canvas.width - 100, 30);
+
+      if (!gameOver) {
+        requestAnimationFrame(gameLoop);
+      } else {
+        ctx.font = '48px Arial';
+        ctx.fillStyle = 'red';
+        ctx.fillText('Game Over', canvas.width / 2 - 120, canvas.height / 2);
+        ctx.font = '20px Arial';
+        ctx.fillStyle = 'white';
+        ctx.fillText('Press Enter to play again', canvas.width / 2 - 100, canvas.height / 2 + 30);
+      }
+    }
+
+    bgMusic.play();
+    gameLoop();
+
+    document.addEventListener('keydown', event => {
+      if (event.code === 'Space' || event.code === 'ArrowUp') {
+        duck.velocity = jumpForce;
+      } else if (event.code === 'Enter' && gameOver) {
+        resetGame();
+      }
+    });
+
+    function resetGame() {
+      duck.x = 50;
+      duck.y = canvas.height / 2.5;
+      duck.velocity = 0;
+      pipes = [];
+      score = 0;
+      gameOver = false;
+      level = 1;
+      pipeSpeed = startingPipeSpeed;
+      bgMusic.playbackRate = 1;
+      bgMusic.play();
+      gameLoop();
+    }
+  </script>
+</body>
+
+</html>
